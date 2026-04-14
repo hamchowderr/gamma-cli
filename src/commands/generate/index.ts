@@ -2,8 +2,9 @@ import type { Command } from 'commander';
 import type { GlobalOptions } from '../context.js';
 import { makeContext, makeClient } from '../context.js';
 import { GammaError } from '@chowderr/gamma-sdk';
+import type { GenerateRequest, Format, TextMode } from '@chowderr/gamma-sdk';
 
-const TYPE_MAP: Record<string, string> = {
+const TYPE_MAP: Record<string, Format> = {
   slides: 'presentation',
   document: 'document',
   social: 'social',
@@ -43,8 +44,6 @@ export function registerGenerateCommands(
       const { formatter } = ctx;
 
       try {
-        const client = makeClient(ctx);
-
         const typeValue = opts.type as string;
         if (!TYPE_MAP[typeValue]) {
           formatter.printError(`Invalid type "${typeValue}". Must be one of: slides, document, social, webpage`);
@@ -66,24 +65,25 @@ export function registerGenerateCommands(
           return;
         }
 
-        const format = TYPE_MAP[typeValue];
+        const client = makeClient(ctx);
 
-        const createParams: Record<string, unknown> = {
+        const format = TYPE_MAP[typeValue]!;
+
+        const request: GenerateRequest = {
           inputText: prompt,
-          textMode,
+          textMode: textMode as TextMode,
           format,
           numCards,
+          ...(opts.theme ? { themeId: opts.theme as string } : {}),
+          ...(opts.instructions ? { instructions: opts.instructions as string } : {}),
+          ...(opts.language ? { language: opts.language as string } : {}),
+          ...(opts.folder ? { folderId: opts.folder as string } : {}),
         };
-
-        if (opts.theme) createParams.themeId = opts.theme;
-        if (opts.instructions) createParams.instructions = opts.instructions;
-        if (opts.language) createParams.language = opts.language;
-        if (opts.folder) createParams.folderId = opts.folder;
 
         const shouldWait = opts.wait as boolean;
 
         if (!shouldWait) {
-          const start = await client.generations.create(createParams as Parameters<typeof client.generations.create>[0]);
+          const start = await client.generations.create(request);
 
           if (formatter.isJSON) {
             formatter.printJSON(start);
@@ -100,7 +100,7 @@ export function registerGenerateCommands(
 
         // Wait mode: poll with progress
         const result = await client.generations.createAndWait(
-          createParams as Parameters<typeof client.generations.createAndWait>[0],
+          request,
           {
             onProgress: (progress) => {
               const elapsed = Math.round((progress.elapsedMs ?? 0) / 1000);
