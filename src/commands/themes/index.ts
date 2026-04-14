@@ -68,44 +68,4 @@ export function registerThemesCommands(
       }
     });
 
-  themes
-    .command('get')
-    .description('Get theme details by UUID')
-    .argument('<id>', 'Theme UUID')
-    .action(async (id: string, _opts: Record<string, unknown>, cmd: Command) => {
-      let root = cmd;
-      while (root.parent) root = root.parent;
-      const globals = getGlobals(root);
-      const ctx = await makeContext(globals);
-      const { formatter } = ctx;
-
-      try {
-        const client = makeClient(ctx);
-
-        const all = await client.themes.listAll();
-        const theme = all.find((t: { id: string }) => t.id === id);
-
-        if (!theme) {
-          formatter.printError(`Theme not found: ${id}`);
-          process.exitCode = 1;
-          return;
-        }
-
-        if (formatter.isJSON) {
-          formatter.printJSON(theme);
-          return;
-        }
-
-        process.stdout.write(`  ID:      ${theme.id}\n`);
-        process.stdout.write(`  Name:    ${theme.name}\n`);
-        process.stdout.write(`  Colors:  ${(theme.colorKeywords ?? []).join(', ') || '(none)'}\n`);
-      } catch (err) {
-        if (err instanceof GammaError) {
-          formatter.printError(err);
-        } else {
-          formatter.printError(err instanceof Error ? err : String(err));
-        }
-        process.exitCode = 1;
-      }
-    });
 }

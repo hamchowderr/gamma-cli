@@ -59,27 +59,4 @@ export function registerFoldersCommands(
       }
     });
 
-  folders
-    .command('create')
-    .description('Create a new folder')
-    .argument('<name>', 'Folder name')
-    .action(async (_name: string, _opts: Record<string, unknown>, cmd: Command) => {
-      let root = cmd;
-      while (root.parent) root = root.parent;
-      const globals = getGlobals(root);
-      const ctx = await makeContext(globals);
-      const { formatter } = ctx;
-
-      if (formatter.isJSON) {
-        formatter.printJSON({
-          success: false,
-          error: 'Folder creation is not yet supported by the Gamma API.',
-        });
-      } else {
-        formatter.printError(
-          'Folder creation is not yet supported by the Gamma API. Create folders at https://gamma.app'
-        );
-      }
-      process.exitCode = 1;
-    });
 }
