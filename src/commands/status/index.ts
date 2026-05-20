@@ -68,13 +68,12 @@ export function registerStatusCommand(
       } catch (err) {
         if (err instanceof GammaError) {
           formatter.printError(err);
-          process.exitCode = 1;
         } else if (err instanceof Error && err.name === 'TimeoutError') {
           formatter.printError('Polling timed out. Generation may still be running — try again later.');
-          process.exitCode = 1;
         } else {
-          throw err;
+          formatter.printError(err instanceof Error ? err : String(err));
         }
+        process.exitCode = 1;
       }
     });
 }

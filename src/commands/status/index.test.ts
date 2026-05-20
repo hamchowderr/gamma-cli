@@ -205,21 +205,9 @@ describe('gamma status — with --wait', () => {
   });
 
   it('rejects --timeout=0 (parseTimeoutSeconds throws before any SDK call)', async () => {
-    // status command re-throws non-GammaError/non-TimeoutError up to commander;
-    // it does NOT print + exitCode = 1 itself for this validation. So we assert
-    // the SDK was never called and the underlying error was raised.
-    let thrown: unknown;
-    const cap = captureStreams();
-    const program = buildProgram();
-    process.exitCode = 0;
-    try {
-      await program.parseAsync(['node', 'gamma', 'status', 'gen-1', '--wait', '--timeout', '0']);
-    } catch (err) {
-      thrown = err;
-    }
-    cap.restore();
-    expect(thrown).toBeInstanceOf(Error);
-    expect((thrown as Error).message).toMatch(/--timeout must be a positive number/);
+    const { exitCode, cap } = await run(['gen-1', '--wait', '--timeout', '0']);
+    expect(exitCode).toBe(1);
+    expect(cap.stderr.join('')).toMatch(/--timeout must be a positive number/);
     expect(waitForCompletion).not.toHaveBeenCalled();
   });
 
