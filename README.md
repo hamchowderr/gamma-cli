@@ -76,29 +76,117 @@ api_key: gamma_sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ## Commands
 
+| Command | What it does |
+|---|---|
+| `gamma generate <prompt>` | Generate a presentation, document, social post, or webpage from a text prompt |
+| `gamma generate-from-template <gamma-id> <prompt>` | Generate from an existing gamma used as a template (beta) |
+| `gamma status <generation-id>` | Check progress for a previously kicked-off generation |
+| `gamma themes list` | List available themes (custom + built-in) |
+| `gamma folders list` | List folders you can save generations into |
+| `gamma config init` | Interactive setup — write API key to the config file |
+| `gamma config show` | Show the resolved config (API key always masked) |
+
 ### `gamma generate <prompt>`
 
 Generate a presentation, document, social post, or webpage from a text prompt.
 
 ```
-Usage: gamma generate [options] <prompt>
+Usage: gamma generate [options] [prompt]
 
 Arguments:
-  prompt                 Text prompt describing what to generate (1-400k chars)
+  prompt                            Text prompt (use "-" to read from stdin)
 
 Options:
-  --type <type>          Output type: slides, document, social, webpage
-                         (default: "slides")
-  --text-mode <mode>     Text handling: generate, condense, preserve
-                         (default: "generate")
-  --theme <id>           Theme UUID
-  --folder <id>          Save to folder UUID
-  --language <code>      Output language code (e.g. "en", "es", "ja")
-  --cards <n>            Number of cards/slides (1-75) (default: "10")
-  --instructions <text>  Additional AI instructions
-  --wait                 Wait for generation to complete (default)
-  --no-wait              Return generation ID immediately without waiting
+  --from-file <path>                Read prompt from a file
+  --type <type>                     Output type: slides, document, social,
+                                    webpage (default: "slides")
+  --text-mode <mode>                Text handling: generate, condense, preserve
+                                    (default: "generate")
+  --theme <id>                      Theme UUID
+  --folder <id>                     Save to folder UUID (repeatable)
+  --language <code>                 Output language code
+  --cards <n>                       Number of cards/slides (1-75) (default: "10")
+  --additional-instructions <text>  Additional AI instructions
+  --text-amount <amount>            Text density: brief, medium, detailed,
+                                    extensive
+  --tone <text>                     Text tone/voice (<=500 chars)
+  --audience <text>                 Target audience description (<=500 chars)
+  --image-source <source>           Image source enum (e.g. aiGenerated, pexels,
+                                    noImages)
+  --image-model <model>             AI image model (when --image-source=aiGenerated)
+  --image-style <text>              Artistic style for AI images (<=500 chars)
+  --dimensions <value>              Card dimensions (format-dependent)
+  --card-split <mode>               Card splitting: auto or inputTextBreaks
+  --header-footer <json>            Header/footer config as JSON
+  --export-as <format>              Export format: pdf or pptx
+  --workspace-access <level>        Workspace access: noAccess, view, comment,
+                                    edit, fullAccess
+  --external-access <level>         External access: noAccess, view, comment, edit
+  --share-email <addr>              Email to share with (repeatable)
+  --share-access <level>            Access for --share-email recipients: view,
+                                    comment, edit, fullAccess
+  --timeout <seconds>               Polling timeout in seconds (default: "600")
+  --wait                            Wait for generation to complete (default)
+  --no-wait                         Return generation ID immediately without waiting
 ```
+
+#### Prompt input
+
+The `prompt` argument accepts a literal string. To pass long input use either:
+
+- `--from-file <path>` — read the prompt from a file (the positional `prompt` is then ignored)
+- Pass `-` as the prompt and pipe content on stdin: `cat brief.md | gamma generate -`
+
+Prompts must be between 1 and 400,000 characters.
+
+#### Text controls
+
+| Flag | Effect |
+|---|---|
+| `--text-mode` | `generate` (default) — treat the prompt as an instruction. `condense` — shorten the source text. `preserve` — keep the source text verbatim. |
+| `--text-amount` | Density of generated text per card: `brief`, `medium`, `detailed`, `extensive`. |
+| `--tone` | Free-text tone/voice direction, up to 500 characters (e.g. `"confident, data-driven"`). |
+| `--audience` | Free-text target audience, up to 500 characters (e.g. `"technical founders"`). |
+
+#### Image controls
+
+| Flag | Effect |
+|---|---|
+| `--image-source` | Image source enum (e.g. `aiGenerated`, `pexels`, `noImages`). |
+| `--image-model` | AI image model — only used when `--image-source=aiGenerated`. |
+| `--image-style` | Artistic style direction for AI-generated images, up to 500 characters. |
+
+#### Card controls
+
+| Flag | Effect |
+|---|---|
+| `--cards` | Number of cards/slides, 1–75 (default `10`). |
+| `--dimensions` | Card dimensions — values are format-dependent: presentations accept `fluid`, `16x9`, `4x3`; documents accept `fluid`, `pageless`, `letter`, `a4`; social posts accept `1x1`, `4x5`, `9x16`. Rejected when `--type=webpage`. |
+| `--card-split` | `auto` (default behavior) or `inputTextBreaks` to honor blank-line breaks in the source. |
+
+#### Export
+
+| Flag | Effect |
+|---|---|
+| `--export-as` | Also export to `pdf` or `pptx`. The export URL is included in the final output alongside `gammaUrl`. |
+
+#### Sharing
+
+| Flag | Effect |
+|---|---|
+| `--workspace-access` | Workspace-wide access level: `noAccess`, `view`, `comment`, `edit`, `fullAccess`. |
+| `--external-access` | Public/external-link access level: `noAccess`, `view`, `comment`, `edit`. |
+| `--share-email` | Email to share the gamma with. Repeatable for multiple recipients. |
+| `--share-access` | Access level applied to every `--share-email` recipient: `view`, `comment`, `edit`, `fullAccess`. |
+
+#### Advanced
+
+| Flag | Effect |
+|---|---|
+| `--header-footer <json>` | Raw JSON object matching the SDK's `HeaderFooterOptions` (e.g. `'{"header":{"text":"Acme"}}'`). Rejected when `--type=webpage`. |
+| `--folder <id>` | Save the generation into a folder UUID. Repeatable to file it into multiple folders. |
+| `--timeout <seconds>` | Max time to wait when polling for completion (default `600`). Only meaningful when `--wait` is set (which it is by default). |
+| `--wait` / `--no-wait` | Block until completion (default) or print the generation ID immediately. |
 
 Example:
 
@@ -107,10 +195,60 @@ gamma generate "Q4 strategy review for a fintech startup" \
   --type slides \
   --cards 15 \
   --theme 2c3a4b5c-6d7e-8f90-1234-567890abcdef \
-  --instructions "Use a confident, data-driven tone."
+  --text-amount detailed \
+  --tone "confident, data-driven" \
+  --audience "early-stage investors" \
+  --image-source aiGenerated \
+  --image-style "minimal editorial photography" \
+  --dimensions 16x9 \
+  --export-as pdf \
+  --additional-instructions "Open with a one-slide TL;DR."
 ```
 
 With `--no-wait`, the command prints the generation ID immediately so you can poll later with `gamma status`.
+
+### `gamma generate-from-template <gamma-id> <prompt>`
+
+Generate a new gamma from an existing gamma used as a template (beta). The template's structure, layout, and theme are reused; only the content is regenerated from the prompt.
+
+```
+Usage: gamma generate-from-template [options] <gamma-id> [prompt]
+
+Arguments:
+  gamma-id                    Template gamma ID (e.g. g_abcdef123456)
+  prompt                      Text prompt (use "-" to read from stdin)
+
+Options:
+  --from-file <path>          Read prompt from a file
+  --theme <id>                Override the template theme
+  --folder <id>               Save to folder UUID (repeatable)
+  --export-as <format>        Export format: pdf or pptx
+  --image-model <model>       AI image model (only used if template uses AI
+                              images)
+  --image-style <text>        Artistic style for AI images (<=500 chars)
+  --workspace-access <level>  Workspace access: noAccess, view, comment, edit,
+                              fullAccess
+  --external-access <level>   External access: noAccess, view, comment, edit
+  --share-email <addr>        Email to share with (repeatable)
+  --share-access <level>      Access for --share-email recipients: view,
+                              comment, edit, fullAccess
+  --timeout <seconds>         Polling timeout in seconds (default: "600")
+  --wait                      Wait for generation to complete (default)
+  --no-wait                   Return generation ID immediately without waiting
+```
+
+The prompt argument accepts the same `--from-file <path>` and `-` (stdin) inputs as `gamma generate`.
+
+Example:
+
+```bash
+gamma generate-from-template g_template123abc \
+  "Weekly product update for the engineering team — week of May 19" \
+  --folder 11111111-2222-3333-4444-555555555555 \
+  --export-as pdf \
+  --share-email teamlead@example.com \
+  --share-access view
+```
 
 ### `gamma status <generation-id>`
 
@@ -120,10 +258,11 @@ Check generation progress.
 Usage: gamma status [options] <generation-id>
 
 Arguments:
-  generation-id  Generation ID to check
+  generation-id        Generation ID to check
 
 Options:
-  --wait         Poll until complete (default: false)
+  --wait               Poll until complete (default: false)
+  --timeout <seconds>  Polling timeout in seconds (only with --wait) (default: "600")
 ```
 
 Example:
@@ -131,6 +270,7 @@ Example:
 ```bash
 gamma status gen_abc123
 gamma status gen_abc123 --wait
+gamma status gen_abc123 --wait --timeout 1200
 ```
 
 ### `gamma themes list`
@@ -141,14 +281,19 @@ List available themes (custom + built-in).
 Usage: gamma themes list [options]
 
 Options:
-  --query <text>  Search themes by name
-  --limit <n>     Max results (default: "25")
+  --query <text>    Search themes by name
+  --limit <n>       Max results (default: "25")
+  --all             Fetch every page until exhausted (ignores --limit)
+  --cursor <token>  Start from a specific pagination cursor
 ```
+
+Pass `--all` to auto-paginate every page (useful for piping into `jq`); pass `--cursor <token>` to resume from a known cursor returned by an earlier call.
 
 Example:
 
 ```bash
 gamma themes list --query dark --limit 10
+gamma themes list --all --json | jq 'length'
 ```
 
 ### `gamma folders list`
@@ -159,14 +304,17 @@ List folders you can save generations into.
 Usage: gamma folders list [options]
 
 Options:
-  --query <text>  Search folders by name
-  --limit <n>     Max results (default: "25")
+  --query <text>    Search folders by name
+  --limit <n>       Max results (default: "25")
+  --all             Fetch every page until exhausted (ignores --limit)
+  --cursor <token>  Start from a specific pagination cursor
 ```
 
 Example:
 
 ```bash
 gamma folders list --query "Q4"
+gamma folders list --all --json | jq -r '.[].id'
 ```
 
 ### `gamma config init`
@@ -249,13 +397,29 @@ gamma generate "Acme Corp onboarding deck" \
 ### Generate from a long brief stored in a file
 
 ```bash
-gamma generate "$(cat brief.md)" \
+gamma generate --from-file brief.md \
   --type document \
   --text-mode preserve \
-  --instructions "Keep the original structure and headings."
+  --additional-instructions "Keep the original structure and headings."
+```
+
+You can also pipe the brief on stdin by passing `-` as the prompt:
+
+```bash
+cat brief.md | gamma generate - \
+  --type document \
+  --text-mode preserve
 ```
 
 `--text-mode preserve` keeps the source text intact; `condense` shortens it; `generate` (default) treats the prompt as an instruction.
+
+### Generate from an existing template
+
+```bash
+gamma generate-from-template g_template123abc \
+  "Weekly engineering update — week of May 19" \
+  --export-as pdf
+```
 
 ### Kick off a long job, poll it from another shell
 
@@ -273,7 +437,13 @@ echo "$GEN_ID" > /tmp/gamma-job
 Shell B:
 
 ```bash
-gamma status "$(cat /tmp/gamma-job)" --wait
+gamma status "$(cat /tmp/gamma-job)" --wait --timeout 1800
+```
+
+### Auto-paginate every theme
+
+```bash
+gamma themes list --all --json | jq -r '.[] | "\(.id)\t\(.name)"'
 ```
 
 ### Pipe a list of prompts into Gamma
@@ -282,6 +452,18 @@ gamma status "$(cat /tmp/gamma-job)" --wait
 while read -r prompt; do
   gamma generate "$prompt" --json --quiet | jq -r '.gammaUrl'
 done < prompts.txt
+```
+
+### Share a generation with reviewers as you create it
+
+```bash
+gamma generate "Series A pitch — Acme Robotics" \
+  --type slides \
+  --cards 14 \
+  --share-email reviewer1@example.com \
+  --share-email reviewer2@example.com \
+  --share-access comment \
+  --external-access noAccess
 ```
 
 ---
