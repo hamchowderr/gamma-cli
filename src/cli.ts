@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import type { GlobalOptions } from './commands/context.js';
 import { registerGenerateCommands } from './commands/generate/index.js';
+import { registerGenerateFromTemplateCommand } from './commands/generate-from-template/index.js';
 import { registerStatusCommand } from './commands/status/index.js';
 import { registerThemesCommands } from './commands/themes/index.js';
 import { registerFoldersCommands } from './commands/folders/index.js';
@@ -31,6 +32,7 @@ export function getGlobals(prog: Command): GlobalOptions {
 }
 
 registerGenerateCommands(program, getGlobals);
+registerGenerateFromTemplateCommand(program, getGlobals);
 registerStatusCommand(program, getGlobals);
 registerThemesCommands(program, getGlobals);
 registerFoldersCommands(program, getGlobals);

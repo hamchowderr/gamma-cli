@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 import type { GlobalOptions } from '../context.js';
 import { makeContext, makeClient } from '../context.js';
 import { GammaError } from '@chowderr/gamma-sdk';
+import type { Theme } from '@chowderr/gamma-sdk';
 
 export function registerThemesCommands(
   program: Command,
@@ -14,6 +15,8 @@ export function registerThemesCommands(
     .description('List available themes')
     .option('--query <text>', 'Search themes by name')
     .option('--limit <n>', 'Max results', '25')
+    .option('--all', 'Fetch every page until exhausted (ignores --limit)', false)
+    .option('--cursor <token>', 'Start from a specific pagination cursor')
     .action(async (opts: Record<string, unknown>, cmd: Command) => {
       let root = cmd;
       while (root.parent) root = root.parent;
@@ -32,22 +35,47 @@ export function registerThemesCommands(
         }
 
         const query = opts.query as string | undefined;
+        const fetchAll = Boolean(opts.all);
+        const cursor = opts.cursor as string | undefined;
 
-        const page = query
-          ? await client.themes.search(query, { limit })
-          : await client.themes.list({ limit });
+        let allThemes: Theme[] = [];
+        let hasMore = false;
+        let nextCursor: string | null = null;
+
+        if (fetchAll) {
+          let after: string | undefined = cursor;
+          // Loop until no more pages
+          while (true) {
+            const page = await client.themes.list({
+              ...(query ? { query } : {}),
+              ...(after ? { after } : {}),
+            });
+            allThemes = allThemes.concat(page.data);
+            if (!page.hasMore || !page.nextCursor) break;
+            after = page.nextCursor;
+          }
+        } else {
+          const page = await client.themes.list({
+            ...(query ? { query } : {}),
+            limit,
+            ...(cursor ? { after: cursor } : {}),
+          });
+          allThemes = page.data;
+          hasMore = page.hasMore;
+          nextCursor = page.nextCursor;
+        }
 
         if (formatter.isJSON) {
-          formatter.printJSON(page.data);
+          formatter.printJSON(allThemes);
           return;
         }
 
-        if (page.data.length === 0) {
+        if (allThemes.length === 0) {
           formatter.printWarning(query ? `No themes matching "${query}"` : 'No themes found');
           return;
         }
 
-        const rows = page.data.map((t: { id: string; name: string; colorKeywords?: string[] }) => ({
+        const rows = allThemes.map((t) => ({
           ID: t.id,
           NAME: t.name,
           COLORS: (t.colorKeywords ?? []).join(', '),
@@ -55,8 +83,11 @@ export function registerThemesCommands(
 
         formatter.printTable(rows);
 
-        if (page.hasMore) {
-          formatter.verbose(`Showing ${page.data.length} of more results. Use --limit to adjust.`);
+        if (!fetchAll && hasMore) {
+          formatter.verbose(`Showing ${allThemes.length} of more results. Use --limit to adjust.`);
+          if (nextCursor) {
+            formatter.verbose(`Next cursor: ${nextCursor}`);
+          }
         }
       } catch (err) {
         if (err instanceof GammaError) {
