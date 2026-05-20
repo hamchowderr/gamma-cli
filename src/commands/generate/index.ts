@@ -1,4 +1,5 @@
 import type { Command } from 'commander';
+import { Option } from 'commander';
 import type { GlobalOptions } from '../context.js';
 import { makeContext, makeClient } from '../context.js';
 import { GammaError } from '@chowderr/gamma-sdk';
@@ -10,6 +11,8 @@ const TYPE_MAP: Record<string, Format> = {
   social: 'social',
   webpage: 'webpage',
 };
+
+const collect = (value: string, acc: string[]): string[] => acc.concat([value]);
 
 export function registerGenerateCommands(
   program: Command,
@@ -30,10 +33,11 @@ export function registerGenerateCommands(
       'generate'
     )
     .option('--theme <id>', 'Theme UUID')
-    .option('--folder <id>', 'Save to folder UUID')
+    .option('--folder <id>', 'Save to folder UUID (repeatable)', collect, [])
     .option('--language <code>', 'Output language code')
     .option('--cards <n>', 'Number of cards/slides (1-75)', '10')
-    .option('--instructions <text>', 'Additional AI instructions')
+    .option('--additional-instructions <text>', 'Additional AI instructions')
+    .addOption(new Option('--instructions <text>', 'Alias for --additional-instructions').hideHelp())
     .option('--wait', 'Wait for generation to complete (default)', true)
     .option('--no-wait', 'Return generation ID immediately without waiting')
     .action(async (prompt: string, opts: Record<string, unknown>, cmd: Command) => {
@@ -69,15 +73,20 @@ export function registerGenerateCommands(
 
         const format = TYPE_MAP[typeValue]!;
 
+        const folderIds = Array.isArray(opts.folder) ? (opts.folder as string[]) : [];
+        const additionalInstructions =
+          (opts.additionalInstructions as string | undefined) ??
+          (opts.instructions as string | undefined);
+
         const request: GenerateRequest = {
           inputText: prompt,
           textMode: textMode as TextMode,
           format,
           numCards,
           ...(opts.theme ? { themeId: opts.theme as string } : {}),
-          ...(opts.instructions ? { instructions: opts.instructions as string } : {}),
+          ...(additionalInstructions ? { additionalInstructions } : {}),
           ...(opts.language ? { language: opts.language as string } : {}),
-          ...(opts.folder ? { folderId: opts.folder as string } : {}),
+          ...(folderIds.length > 0 ? { folderIds } : {}),
         };
 
         const shouldWait = opts.wait as boolean;
