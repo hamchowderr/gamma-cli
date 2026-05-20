@@ -1,0 +1,8 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "gamma_cli",
+  "project_id": "3a6dd03b-07a0-445b-bbf7-e981254d9fce",
+  "global_dolt_database": "beads_global"
+}
