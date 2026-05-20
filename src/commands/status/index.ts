@@ -8,6 +8,7 @@ import {
   isGenerationPending,
   isGenerationFailed,
 } from '@chowderr/gamma-sdk';
+import { parseTimeoutSeconds } from '../generate/helpers.js';
 
 export function registerStatusCommand(
   program: Command,
@@ -18,7 +19,8 @@ export function registerStatusCommand(
     .description('Check generation progress')
     .argument('<generation-id>', 'Generation ID to check')
     .option('--wait', 'Poll until complete', false)
-    .action(async (generationId: string, opts: { wait: boolean }, cmd: Command) => {
+    .option('--timeout <seconds>', 'Polling timeout in seconds (only with --wait)', '600')
+    .action(async (generationId: string, opts: { wait: boolean; timeout?: string }, cmd: Command) => {
       let root = cmd;
       while (root.parent) root = root.parent;
 
@@ -29,12 +31,14 @@ export function registerStatusCommand(
 
       try {
         if (opts.wait) {
+          const timeoutSeconds = parseTimeoutSeconds(opts.timeout, 600);
           const result = await client.generations.waitForCompletion(generationId, {
             onProgress: (progress) => {
               formatter.printProgress(
                 `Polling... (attempt ${progress.pollCount}, ${Math.round(progress.elapsedMs / 1000)}s elapsed)`
               );
             },
+            signal: AbortSignal.timeout(timeoutSeconds * 1000),
           });
 
           formatter.clearProgress();
@@ -64,6 +68,9 @@ export function registerStatusCommand(
       } catch (err) {
         if (err instanceof GammaError) {
           formatter.printError(err);
+          process.exitCode = 1;
+        } else if (err instanceof Error && err.name === 'TimeoutError') {
+          formatter.printError('Polling timed out. Generation may still be running — try again later.');
           process.exitCode = 1;
         } else {
           throw err;
