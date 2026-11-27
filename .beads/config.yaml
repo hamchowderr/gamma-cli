@@ -54,3 +54,6 @@
 # - github.repo
 
 dolt.shared-server: true
+
+sync:
+    remote: chowderr/gamma-cli
